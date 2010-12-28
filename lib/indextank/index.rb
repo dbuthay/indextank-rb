@@ -69,15 +69,46 @@ module IndexTank
     #                for this query
     #   :variables => a hash int => float, with variables that can be later
     #                 used in scoring :function
+    #   :category_filters =>
+    #   :docvar_filters =>  a hash int => Array [ Array [2] ] with variable numbers as keys
+    #                       and arrays of ranges allowed for docvar matching the key. Ranges
+    #                       can contain nil, which is interpreted as infinity.
+    #   :function_filters => a hash int => Array [ Array [2] ] with variable numbers as keys
+    #                       and arrays of ranges allowed for function values matching the key. 
+    #                       Ranges can contain nil, which is interpreted as infinity or -infinity.
     def search(query, options = {})
       options = {:start => 0, :len => 10 }.merge(options).merge(:q => query)
       if options[:variables]
         options[:variables].each_pair { |k, v| options.merge!( :"var#{k}" => v ) }
+        options.delete :variables
+      end
+
+      if options[:docvar_filters]
+        # go from { 3 => [ [1, 3], [5, nil] ]} to filter_docvar3 => 1:3,5:*
+        options[:docvar_filters].each_pair { |k, v| 
+                                              v.each { |rng|
+                                                raise ArgumentError, "using a range with bound count != 2"  unless rng.length == 2
+                                                rng = "#{v[0] || '*'}:#{v[1] || '*'}"
+                                                options.merge!( :"filter_docvar#{k}" => rng ) 
+                                              }
+                                           }
+        options.delete :docvar_filters
+      end
+
+      if options[:function_filters]
+        # go from { 2 => [ [1 , 3],[5,8] ]} to filter_function2 => 1:3,5:8
+        options[:function_filters].each_pair { |k, v| 
+                                              v.each { |rng|
+                                                raise ArgumentError, "using a range with bound count != 2"  unless rng.length == 2
+                                                rng = "#{v[0] || '*'}:#{v[1] || '*'}"
+                                                options.merge!( :"filter_function#{k}" => rng ) 
+                                              }
+                                           }
+        options.delete :function_filters
       end
 
       if options[:category_filters]
         options[:category_filters] = options[:category_filters].to_json
-        p options[:category_filters] 
       end
 
       response = @conn.get do |req|
