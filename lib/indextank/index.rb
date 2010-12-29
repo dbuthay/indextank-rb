@@ -98,11 +98,11 @@ module IndexTank
       if options[:function_filters]
         # go from { 2 => [ [1 , 3],[5,8] ]} to filter_function2 => 1:3,5:8
         options[:function_filters].each_pair { |k, v| 
-                                              v.each { |rng|
+                                              rng = v.map { |val|
                                                 raise ArgumentError, "using a range with bound count != 2"  unless rng.length == 2
-                                                rng = "#{v[0] || '*'}:#{v[1] || '*'}"
-                                                options.merge!( :"filter_function#{k}" => rng ) 
-                                              }
+                                                "#{val[0] || '*'}:#{val[1] || '*'}"
+                                              }.join ","
+                                              options.merge!( :"filter_function#{k}" => rng ) 
                                            }
         options.delete :function_filters
       end
